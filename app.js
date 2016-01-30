@@ -2,13 +2,16 @@ var ftp     = require('ftp-get')
 var fs      = require('fs');
 var csv     = require("csvtojson").Converter;
 var request = require("request");
+var suspend = require('suspend');
 
 var remoteFile = "ftp://ftp.nasdaqtrader.com/SymbolDirectory/nasdaqtraded.txt"
 var timestamp  = String((new Date).getTime());
-var filePath   = "./data/nasdaq/"
-var symbolPath = "./data/symbols/"
-var localFile  = ""
-var extension  = ".psv"
+var filePath   = "./data/nasdaq/";
+var symbolPath = "./data/symbols/";
+var pricePath  = "./data/pricehistory/";
+var localFile  = "";
+var extension  = ".psv";
+var jextension = ".json";
 var keys       = [];
 var current    = 0;
 
@@ -91,15 +94,18 @@ function listSymbolData(latest) {
 		if (err) throw err;
 		var symbolList = JSON.parse(data);
 		keys = Object.keys(symbolList);
-		symbolCall();
+		symbolCall(latest);
 	});
 }
 
-function symbolCall() {
+function symbolCall(latest) {
 	getSymbolData(keys[current], function(symbol, body) {
-		current += 1;
-		sortData(symbol, body);
-		symbolCall();
+		suspend(function* () {
+			current += 1;
+			sortData(symbol, body, latest);
+		    yield setTimeout(suspend.resume(), 250); // 1 second passes..
+			symbolCall(latest);
+		})();
 	});
 }
 
@@ -108,12 +114,17 @@ function getSymbolData(symbol, callback) {
 	request({
 	  	uri: url,
 	}, function(error, response, body) {
-			callback(symbol, body);
+		callback(symbol, body);
 	});
 }
 
-function sortData(symbol, body) {
-	console.log(body);
+function sortData(symbol, body, latest) {
+	makeFolder(pricePath);
+	makeFolder(pricePath + latest);
+    fs.writeFile(pricePath + latest + "/" + symbol + jextension, JSON.stringify(body), function (err) {
+	  	if (err) return console.log(err);
+	  	console.log("Completed Price Data for: " + symbol);
+	});
 }
 
 makeFolder("./data");
