@@ -94,7 +94,33 @@ function listSymbolData(latest) {
 		if (err) throw err;
 		var symbolList = JSON.parse(data);
 		keys = Object.keys(symbolList);
+		cacheKeys(latest);
 		symbolCall(latest);
+	});
+}
+
+function cacheKeys(latest) {
+	fs.readdir(pricePath + latest, function(err, items) {
+		var existingSymbols = [];
+		var newKeys = [];
+		for (i = 0; i < items.length; i++) {
+			existingSymbols.push(items[i].split(".")[0]);
+		}
+		for (i = 0; i < keys.length; i++) {
+			var found = false;
+			for (j = 0; j < existingSymbols.length; j++) {
+				if (keys[i] == existingSymbols[j]) {
+					found = true;
+				}
+			}
+			if (found) {
+				// console.log("Found: " + keys[i]);
+			} else if (!found) {
+				newKeys.push(keys[i]);
+				// console.log("Not Found: " + keys[i]);
+			}
+		}
+		keys = newKeys;
 	});
 }
 
@@ -103,7 +129,7 @@ function symbolCall(latest) {
 		suspend(function* () {
 			current += 1;
 			sortData(symbol, body, latest);
-		    yield setTimeout(suspend.resume(), 250); // 1 second passes..
+		    yield setTimeout(suspend.resume(), 25); // 0.1 second passes..
 			symbolCall(latest);
 		})();
 	});
